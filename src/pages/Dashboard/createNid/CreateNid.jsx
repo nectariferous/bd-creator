@@ -1,412 +1,163 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
 import Marque from "../../../componnets/Marque";
+import ComponnetsName from "../../../componnets/ComponnetsName";
 import Charge from "../../../componnets/Charge";
-import toast, { Toaster } from "react-hot-toast";
-import pdf from "../../../assets/pdf.png";
-import { useNavigate } from "react-router-dom";
-import useAprovedPayments from "../../../hooks/useAprovedPayment";
+import { useForm } from "react-hook-form";
+import toast from "react-hot-toast";
+import { singnCopy } from "../../../healper/Healper";
 import axios from "axios";
 import useContexts from "../../../hooks/useContexts";
-const CreateNid = () => {
-  const [imageUrl, setImageUrl] = useState(null);
-  const [signature, setSignature] = useState(null);
-  const [customImageUrl, setCustomImageUrl] = useState(null);
-  const [customSignature, setCustomSignature] = useState(null);
+import useAprovedPayments from "../../../hooks/useAprovedPayment";
+import { useState } from "react";
+import useNid from "../../../hooks/useNid";
+import { FaCircleArrowDown } from "react-icons/fa6";
+
+const NidCard = () => {
+  const { nid, refetch } = useNid();
+  const { payments } = useAprovedPayments();
+
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const { user, setUser } = useContexts();
-  const { refetch, payments, setPayments } = useAprovedPayments();
-  const navigate = useNavigate();
-
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm();
-
-  // Check if the user's email matches and assign admin and balance
-  useEffect(() => {
-    if (user?.email === "likhonsheikh5@gmail.com") {
-      setUser({ ...user, isAdmin: true });
-      setPayments({ ...payments, data: { amount: 9999999 } });
-    }
-  }, [user, setUser, payments, setPayments]);
-
-  // Function to format the date as dd/mm/yyyy
-  const getFormattedDate = () => {
-    const today = new Date();
-    const day = String(today.getDate()).padStart(2, '0');
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const year = today.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
-  // Function to convert English digits to Bangla digits
-  const convertToBanglaDigits = (englishDate) => {
-    const enToBanglaNums = {
-      0: "০", 1: "১", 2: "২", 3: "৩", 4: "৪", 5: "৫",
-      6: "৬", 7: "৭", 8: "৮", 9: "৯"
-    };
-    return englishDate.replace(/\d/g, digit => enToBanglaNums[digit]);
-  };
-
-  const formattedDate = getFormattedDate();
-  const formattedBanglaDate = convertToBanglaDigits(formattedDate);
-
-  const handleNidFileChange = (event) => {
-    const file = event.target.files[0];
-    setCustomImageUrl(URL.createObjectURL(file));
-    console.log("NID file selected:", file);
-  };
-
-  const handleSignatureFileChange = (event) => {
-    const file = event.target.files[0];
-    setCustomSignature(URL.createObjectURL(file));
-    console.log("Signature file selected:", file);
-  };
-  const imageUrls = imageUrl ? imageUrl : customImageUrl;
-  const signatures = signature ? signature : customSignature;
-  const currentCharge = 10;
+  const { user } = useContexts();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm();
+  const currentCharge = 200;
   const onSubmit = async (data) => {
+    const identifier = "nid";
+    const { formNumber, selectType, signCopyDetails } = data;
+    const sendData = {
+      formNumber,
+      selectType,
+      signCopyDetails,
+      userEmail: user?.email,
+    };
     if (payments?.data?.amount < currentCharge) {
       setError("আপনার একাউন্টে পর্যাপ্ত টাকা নেই । দয়াকরে রিচার্জ করুন");
       return;
     }
-    console.log(data);
+    const datas = await singnCopy(sendData, identifier);
 
-    const response = await axios.patch(
-      `https://telent-finder.vercel.app/api/v1/update-payments?email=${user?.email}`,
-      {
-        amount: currentCharge,
+    if (datas.data.success) {
+      toast.success("nid added wait for admin response");
+      const response = await axios.patch(
+        `https://telent-finder.vercel.app/api/v1/update-payments?email=${user?.email}`,
+        {
+          amount: currentCharge,
+        }
+      );
+
+      if (response.data.success) {
+        refetch();
+        reset();
+        toast.success("success please wait for admin");
       }
-    );
-
-    refetch();
-    console.log(response);
-    navigate("/create-nid-download", {
-      state: {
-        data: data,
-        imageUrl: imageUrls,
-        signature: signatures,
-      },
-    });
-  };
-
-  const handleFileChange = async (event) => {
-    const file = event.target.files[0];
-    console.log(file);
-    if (!file) return;
-
-    setLoading(true);
-    const formData = new FormData();
-    formData.append("pdf_file", file);
-
-    try {
-      const response = await fetch("/crete-nid-api/ext/onlineserviceguru", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Network response was not ok.");
-      }
-
-      const responseData = await response.json();
-      console.log(responseData);
-
-      if (responseData.message === "balance") {
-        toast.error("No Balance");
-      } else if (responseData.message === "wrong") {
-        toast.error("Wrong file");
-      } else if (responseData.message === "ext") {
-        console.log("Extracted Data:", responseData);
-        setValue("nameBangla", responseData.nameBen);
-        setValue("nameEnglish", responseData.nameEng);
-        setValue("idNumber", responseData.national_id);
-        setValue("pinNumber", responseData.pin);
-        setValue("fatherName", responseData.father);
-        setValue("motherName", responseData.mother);
-        setValue("birthPlace", responseData.birth_place);
-        setValue("birthDate", responseData.birth);
-        setValue("bloodGroup", responseData.blood);
-        setValue("address", responseData.address);
-        setImageUrl(responseData.photo);
-        setSignature(responseData.sign);
-      }
-    } catch (error) {
-      console.error("There was a problem with the file upload:", error.message);
-      toast.error("File upload failed. Please try again.");
-    } finally {
-      setLoading(false);
     }
   };
-
   return (
-    <div className="border">
+    <div>
       <Marque />
-
-      <Toaster />
+      <ComponnetsName title={"এনআইডি কার্ড অর্ডার করুন।"} />
+      <Charge title={`এনআইডি কার্ডের জন্য ${currentCharge} টাকা কাটা হবে।`} />
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="w-full bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
+        className=" w-full bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
       >
-        <div className=" flex items-center justify-center md:mx-96">
-          <input
-            id="file"
-            type="file"
-            accept="application/pdf"
-            onChange={handleFileChange}
-            className="hidden"
-          />
+        <div className="mb-4">
           <label
-            htmlFor="file"
-            className=" flex items-center justify-center cursor-pointer w-full p-8  border border-dashed  border-gray-400  hover:bg-gray-100"
+            htmlFor="selectType"
+            className="block text-gray-700 text-sm font-bold mb-2 text-center"
           >
-            <div>
-              <img
-                src={pdf}
-                className=" h-24 flex items-center justify-center w-7/12 mx-auto"
-                alt=""
-              />
-              <span
-                style={{ fontFamily: "'SolaimanLipi', Arial, sans-serif" }}
-                className=" text-[16px] font-bold text-[#0066FF]"
-              >
-                সাইন কপি আপলোড করুন
-              </span>
-            </div>
+            Select Type:
           </label>
-        </div>
+          <select
+            id="selectType"
+            {...register("selectType")}
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          >
+            <option value="nidNo">NID No</option>
+            <option value="formNo">Form No</option>
 
-        <div className="divider">OR</div>
-        <div className="md:flex items-center justify-center gap-8 ">
-          <div className="flex items-center ">
-            <input
-              id="nidFile"
-              type="file"
-              accept="image/*"
-              onChange={handleNidFileChange}
-              className="hidden"
-            />
-            <label htmlFor="nidFile" className="">
-              <span
-                style={{ fontFamily: "'SolaimanLipi', Arial, sans-serif" }}
-                className=" cursor-pointer bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              >
-                NID Image
-              </span>
-            </label>
-            <img
-              src={imageUrl ? imageUrl : customImageUrl}
-              className="w-14 h-14 ml-4 "
-              alt=""
-            />
-          </div>
-          <div className=" flex items-center ">
-            <input
-              id="signatureFile"
-              type="file"
-              accept="image/*"
-              onChange={handleSignatureFileChange}
-              className="hidden"
-            />
-            <label htmlFor="signatureFile" className="">
-              <span
-                style={{ fontFamily: "'SolaimanLipi', Arial, sans-serif" }}
-                className="cursor-pointer bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              >
-                Signature
-              </span>
-            </label>
-            <img
-              src={signature ? signature : customSignature}
-              className="w-16 h-16 ml-4 mt-4 md:mt-0"
-              alt=""
-            />
-          </div>
+            <option value="birthCertificate">Birth Certificate No</option>
+            <option value="votar number">Votar Number No</option>
+          </select>
         </div>
         <div className="mb-4">
           <label
-            htmlFor="nameBangla"
-            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="formNumber"
+            className="block text-gray-700 text-sm font-bold mb-2 text-center"
           >
-            নামঃ (বাংলা)
+            আইডি/ভোটার/ফর্ম নাম্বারঃ *
           </label>
           <input
-            id="nameBangla"
-            type="text"
-            {...register("nameBangla")}
+            id="formNumber"
+            type="number"
+            {...register("formNumber", { required: true })}
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
           />
+          {errors.formNumber && (
+            <span className="text-red-500">This field is required</span>
+          )}
         </div>
         <div className="mb-4">
           <label
-            htmlFor="nameEnglish"
-            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="signCopyDetails"
+            className="block text-gray-700 text-sm font-bold mb-2 text-center"
           >
-            নামঃ (ইংরেজী)
-          </label>
-          <input
-            id="nameEnglish"
-            type="text"
-            {...register("nameEnglish")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="idNumber"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            আইডি নাম্বারঃ
-          </label>
-          <input
-            id="idNumber"
-            type="text"
-            {...register("idNumber")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="pinNumber"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            পিন নাম্বারঃ
-          </label>
-          <input
-            id="pinNumber"
-            type="text"
-            {...register("pinNumber")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="fatherName"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            পিতার নামঃ
-          </label>
-          <input
-            id="fatherName"
-            type="text"
-            {...register("fatherName")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="spouseName"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            স্বামী অথবা স্ত্রীর নামঃ
-          </label>
-          <input
-            id="spouseName"
-            type="text"
-            {...register("spouseName")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="motherName"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            মাতার নামঃ
-          </label>
-          <input
-            id="motherName"
-            type="text"
-            {...register("motherName")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="birthPlace"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            জন্ম স্থানঃ
-          </label>
-          <input
-            id="birthPlace"
-            type="text"
-            {...register("birthPlace")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="birthDate"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            জন্ম তারিখঃ
-          </label>
-          <input
-            id="birthDate"
-            type="text"
-            {...register("birthDate")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="principalDate"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            প্রধানের তারিখঃ
-          </label>
-          <input
-            id="principalDate"
-            type="text"
-            value={formattedBanglaDate}
-            {...register("principalDate")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="bloodGroup"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            রক্তের গ্রপঃ
-          </label>
-          <input
-            id="bloodGroup"
-            type="text"
-            {...register("bloodGroup")}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          />
-        </div>
-        <div className="mb-4">
-          <label
-            htmlFor="address"
-            className="block text-gray-700 text-sm font-bold mb-2"
-          >
-            ঠিকানাঃ
+            সাইন কপি সম্পর্কে বিস্তারিত লিখুনঃ(যদি কিছু বলার থাকে)
           </label>
           <textarea
-            id="address"
-            {...register("address")}
-            className="shadow appearance-none border rounded w-full py-8 px-8 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            placeholder="ঠিকানা: বাসা/হোল্ডিং: (Holding), গ্রাম/রাস্তা: (গ্রাম, মৌজা), ডাকঘর: (Post Office - Postal Code), উপজেলা, সিটি কর্পোরেশন/পৌরসভা, জেলা"
+            id="signCopyDetails"
+            {...register("signCopyDetails")}
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
           />
         </div>
-        {/* Other form fields */}
-        <Charge title={"আপনার একাউন্ট থেকে 5 টাকা কাটা হবে।"} />
         <p className="text-red-500">{error}</p>
         <div className="flex items-center justify-center">
           <button
             type="submit"
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-            disabled={loading}
           >
-            submit
+            Submit
           </button>
         </div>
       </form>
+      <div>
+        <div className="overflow-x-auto">
+          <table className="table ">
+            {/* head */}
+            <thead>
+              <tr className="text-xl text-[#0b3558] ">
+                <th>No</th>
+                <th>State</th>
+                <th>Issue For</th>
+                <th>Issue Number</th>
+              </tr>
+            </thead>
+            <tbody className="">
+              {nid?.data?.map((sign, index) => (
+                <tr className="text-[#0066FF]" key={payments._id}>
+                  <td>{index + 1}</td>
+                  <td>
+                    {sign.state === "pending" ? (
+                      "pending"
+                    ) : (
+                      <button className={"flex items-center   btn-primary"}>
+                        <FaCircleArrowDown />
+                      </button>
+                    )}
+                  </td>
+                  <td>{sign.selectType}</td>
+                  <td>{sign.formNumber}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default CreateNid;
+export default NidCard;
