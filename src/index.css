@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.btn-nav {
+  @apply border  border-[#0069ff] hover:border-blue-600 text-[#0069ff] text-xl  font-bold py-2 px-4 rounded-md shadow-lg transition duration-100 ease-in-out;
+}
+.btn-primary {
+  @apply bg-[#0069ff] hover:bg-blue-600 text-white font-bold text-xl py-4  px-3 rounded-md  border-0 transition duration-100 ease-in-out;
+}
+.text-primary {
+  @apply text-4xl md:text-6xl xl:text-7xl font-bold text-[#0b3558];
+}
+
+@font-face {
+  font-family: "BanglaFont";
+  src: url("./fonts/Bangla.ttf") format("truetype");
+}
+
+.bn {
+  font-family: "BanglaFont", Arial, sans-serif;
+}

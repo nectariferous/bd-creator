@@ -1,0 +1,18 @@
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+
+const useAllUserBiomatric = () => {
+  const { data: biometric = [], refetch } = useQuery({
+    queryKey: ["biometric"],
+    queryFn: async () => {
+      const res = await axios.get(
+        `https://telent-finder.vercel.app/api/v1/get-all-biometric`
+      );
+      return res.data;
+    },
+  });
+
+  return { biometric, refetch };
+};
+
+export default useAllUserBiomatric;

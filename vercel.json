@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://api.foxithub.com/$1"
+    },
+    {
+      "source": "/biometric-api/(.*)",
+      "destination": "https://tbbtech.xyz/$1"
+    },
+    {
+      "source": "/crete-nid-api/(.*)",
+      "destination": "https://esservice.pythonanywhere.com/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ]
+}
